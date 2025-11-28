@@ -12,3 +12,4 @@ cryptography
 httpx
 apscheduler
 google-generativeai
+google-auth
