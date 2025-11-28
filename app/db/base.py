@@ -1,0 +1,4 @@
+from app.db.base_class import Base  # noqa
+from app.models.user import User  # noqa
+from app.models.credential import UserCredential # noqa
+from app.models.chat import Conversation, Message # noqa
