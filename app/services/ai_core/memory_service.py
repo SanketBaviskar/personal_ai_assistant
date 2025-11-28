@@ -27,4 +27,9 @@ class MemoryService:
         messages = db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.created_at.asc()).limit(limit).all()
         return [{"role": m.role, "content": m.content} for m in messages]
 
+    def get_user_conversations(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
+        conversations = db.query(Conversation).filter(Conversation.user_id == user_id).order_by(Conversation.updated_at.desc()).all()
+        return [{"id": c.id, "title": c.title, "updated_at": c.updated_at} for c in conversations]
+
+
 memory_service = MemoryService()

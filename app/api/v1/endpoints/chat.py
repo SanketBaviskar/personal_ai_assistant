@@ -71,3 +71,38 @@ def chat(
         sources=sources,
         conversation_id=conversation.id
     )
+
+@router.get("/conversations", response_model=List[dict])
+def get_conversations(
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get all conversations for the current user.
+    """
+    # We need to add a method to memory_service to list conversations
+    # For now, we'll do a direct query here or add it to memory_service
+    # Let's add it to memory_service first.
+    # Wait, I can't modify memory_service in this same tool call.
+    # I'll do a direct query for now to save time, or better, add it to memory_service in next step.
+    # Actually, I'll add the endpoint definition here and implement the service method in the next step.
+    conversations = memory_service.get_user_conversations(db, current_user.id)
+    return conversations
+
+@router.get("/{conversation_id}/messages", response_model=List[dict])
+def get_conversation_messages(
+    conversation_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get messages for a specific conversation.
+    """
+    # Verify ownership
+    conversation = memory_service.get_or_create_conversation(db, current_user.id, conversation_id)
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    history = memory_service.get_history(db, conversation_id, limit=100)
+    return history
+
