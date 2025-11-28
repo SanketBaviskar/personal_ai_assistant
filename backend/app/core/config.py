@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Personal AI Knowledge Assistant"
@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "changethis-secret-key-for-dev-only-123456" # TODO: Change in production
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
     ALGORITHM: str = "HS256"
+    
+    # CORS
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+
     
     # Database
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///./sql_app.db"

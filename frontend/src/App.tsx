@@ -10,6 +10,7 @@ import Chat from "./pages/Chat";
 
 // Replace with your actual Client ID or use env var
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+console.log("Loaded Client ID:", GOOGLE_CLIENT_ID); // Debugging
 
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
 	const token = localStorage.getItem("token");
