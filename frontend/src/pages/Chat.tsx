@@ -14,6 +14,10 @@ interface Conversation {
 	updated_at: string;
 }
 
+import { useGoogleLogin } from "@react-oauth/google";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const Chat: React.FC = () => {
 	const navigate = useNavigate();
 	const [input, setInput] = useState("");
@@ -21,17 +25,31 @@ const Chat: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [conversationId, setConversationId] = useState<number | null>(null);
 	const [conversations, setConversations] = useState<Conversation[]>([]);
+	const [isDriveConnected, setIsDriveConnected] = useState(false);
+	const [syncing, setSyncing] = useState(false);
 
 	const handleLogout = () => {
 		localStorage.removeItem("token");
 		navigate("/login");
 	};
 
+	const fetchUser = async () => {
+		try {
+			const token = localStorage.getItem("token");
+			const res = await axios.get(`${API_URL}/api/v1/users/me`, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			setIsDriveConnected(res.data.google_drive_connected);
+		} catch (error) {
+			console.error("Failed to fetch user", error);
+		}
+	};
+
 	const fetchConversations = async () => {
 		try {
 			const token = localStorage.getItem("token");
 			const res = await axios.get(
-				"http://localhost:8000/api/v1/chat/conversations",
+				`${API_URL}/api/v1/chat/conversations`,
 				{
 					headers: { Authorization: `Bearer ${token}` },
 				}
@@ -46,7 +64,7 @@ const Chat: React.FC = () => {
 		try {
 			const token = localStorage.getItem("token");
 			const res = await axios.get(
-				`http://localhost:8000/api/v1/chat/${id}/messages`,
+				`${API_URL}/api/v1/chat/${id}/messages`,
 				{
 					headers: { Authorization: `Bearer ${token}` },
 				}
@@ -58,8 +76,54 @@ const Chat: React.FC = () => {
 		}
 	};
 
+	const connectDrive = useGoogleLogin({
+		onSuccess: async (codeResponse) => {
+			try {
+				const token = localStorage.getItem("token");
+				await axios.post(
+					`${API_URL}/api/v1/auth/google-drive`,
+					{
+						code: codeResponse.code,
+						redirect_uri: window.location.origin, // or 'postmessage' depending on setup
+					},
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					}
+				);
+				setIsDriveConnected(true);
+				alert("Google Drive connected!");
+			} catch (error) {
+				console.error("Failed to connect drive", error);
+				alert("Failed to connect Google Drive");
+			}
+		},
+		flow: "auth-code",
+		scope: "https://www.googleapis.com/auth/drive.readonly",
+	});
+
+	const syncDrive = async () => {
+		setSyncing(true);
+		try {
+			const token = localStorage.getItem("token");
+			const res = await axios.post(
+				`${API_URL}/api/v1/drive/sync`,
+				{},
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				}
+			);
+			alert(res.data.message);
+		} catch (error) {
+			console.error("Sync failed", error);
+			alert("Sync failed");
+		} finally {
+			setSyncing(false);
+		}
+	};
+
 	useEffect(() => {
 		fetchConversations();
+		fetchUser();
 	}, []);
 
 	const sendMessage = async () => {
@@ -73,7 +137,7 @@ const Chat: React.FC = () => {
 		try {
 			const token = localStorage.getItem("token");
 			const res = await axios.post(
-				"http://localhost:8000/api/v1/chat/",
+				`${API_URL}/api/v1/chat/`,
 				{
 					query: input,
 					conversation_id: conversationId, // Send current ID (or null)
@@ -128,6 +192,41 @@ const Chat: React.FC = () => {
 					<Plus size={20} />
 					<span>New Chat</span>
 				</button>
+
+				{/* Drive Integration */}
+				<div className="mb-4 p-3 bg-gray-700 rounded-lg">
+					<h3 className="text-sm font-semibold mb-2 text-gray-300">
+						Integrations
+					</h3>
+					{!isDriveConnected ? (
+						<button
+							onClick={() => connectDrive()}
+							className="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-100 p-2 rounded w-full text-sm font-medium transition-colors"
+						>
+							<img
+								src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg"
+								alt="Drive"
+								className="w-4 h-4"
+							/>
+							Connect Drive
+						</button>
+					) : (
+						<div className="space-y-2">
+							<div className="flex items-center gap-2 text-green-400 text-sm">
+								<span className="w-2 h-2 bg-green-400 rounded-full"></span>
+								Drive Connected
+							</div>
+							<button
+								onClick={syncDrive}
+								disabled={syncing}
+								className="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-500 p-2 rounded w-full text-sm transition-colors disabled:opacity-50"
+							>
+								{syncing ? "Syncing..." : "Sync Files"}
+							</button>
+						</div>
+					)}
+				</div>
+
 				<div className="flex-1 overflow-y-auto">
 					<div className="text-gray-400 text-sm mb-2">Recent</div>
 					{conversations.map((conv) => (

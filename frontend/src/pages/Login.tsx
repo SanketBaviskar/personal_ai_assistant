@@ -5,13 +5,14 @@ import axios from "axios";
 
 const Login: React.FC = () => {
 	const navigate = useNavigate();
+	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 	const handleSuccess = async (credentialResponse: any) => {
 		try {
 			const { credential } = credentialResponse;
 			// Send token to backend
 			const res = await axios.post(
-				"http://localhost:8000/api/v1/auth/login/google",
+				`${API_URL}/api/v1/auth/login/google`,
 				{
 					token: credential,
 				}

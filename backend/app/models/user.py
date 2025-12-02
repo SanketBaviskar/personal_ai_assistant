@@ -9,6 +9,9 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=True)
     google_sub = Column(String, unique=True, nullable=True)
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
+    google_drive_connected = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     
     conversations = relationship("Conversation", back_populates="user")

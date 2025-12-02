@@ -9,6 +9,7 @@ from app.api import deps
 from app.core import security
 from app.core.config import settings
 from app.schemas import user as schemas
+from app.models import user as models
 from app.services.user_service import user_service
 
 router = APIRouter()
@@ -114,4 +115,48 @@ def login_google(
     except ValueError as e:
         # Invalid token
         raise HTTPException(status_code=400, detail=f"Invalid Google Token: {str(e)}")
+
+@router.post("/google-drive", response_model=schemas.User)
+def connect_google_drive(
+    *,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+    auth_data: schemas.GoogleAuthCode,
+) -> Any:
+    """
+    Connect Google Drive by exchanging auth code for tokens.
+    """
+    from google_auth_oauthlib.flow import Flow
+    
+    try:
+        # Create flow instance to exchange code
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            },
+            scopes=['https://www.googleapis.com/auth/drive.readonly'],
+            redirect_uri=auth_data.redirect_uri
+        )
+        
+        flow.fetch_token(code=auth_data.code)
+        credentials = flow.credentials
+        
+        # Update user with tokens
+        current_user.google_access_token = credentials.token
+        current_user.google_refresh_token = credentials.refresh_token
+        current_user.google_drive_connected = True
+        
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+        
+        return current_user
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to connect Google Drive: {str(e)}")
 

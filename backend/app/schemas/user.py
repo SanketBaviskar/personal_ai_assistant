@@ -29,6 +29,7 @@ class UserInDBBase(UserBase):
 
 # Additional properties to return via API
 class User(UserInDBBase):
+    google_drive_connected: bool = False
     pass
 
 
@@ -51,3 +52,7 @@ class TokenData(BaseModel):
 
 class GoogleAuth(BaseModel):
     token: str
+
+class GoogleAuthCode(BaseModel):
+    code: str
+    redirect_uri: Optional[str] = "postmessage"
