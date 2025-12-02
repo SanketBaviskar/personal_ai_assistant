@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Send, Plus, MessageSquare } from "lucide-react";
+import {
+	LogOut,
+	Send,
+	Plus,
+	MessageSquare,
+	FileText,
+	CheckCircle,
+	AlertCircle,
+	Clock,
+} from "lucide-react";
 import Typewriter from "../components/Typewriter";
 import FileUpload from "../components/FileUpload";
 import axios from "axios";
@@ -27,6 +36,14 @@ const Chat: React.FC = () => {
 	const [loading, setLoading] = useState(false);
 	const [conversationId, setConversationId] = useState<number | null>(null);
 	const [conversations, setConversations] = useState<Conversation[]>([]);
+	const [documents, setDocuments] = useState<
+		{
+			id: number;
+			filename: string;
+			status: string;
+			error_message?: string;
+		}[]
+	>([]);
 	const [isDriveConnected, setIsDriveConnected] = useState(false);
 	const [syncing, setSyncing] = useState(false);
 
@@ -59,6 +76,18 @@ const Chat: React.FC = () => {
 			setConversations(res.data);
 		} catch (error) {
 			console.error("Failed to fetch conversations", error);
+		}
+	};
+
+	const fetchDocuments = async () => {
+		try {
+			const token = localStorage.getItem("token");
+			const res = await axios.get(`${API_URL}/api/v1/documents/`, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			setDocuments(res.data);
+		} catch (error) {
+			console.error("Failed to fetch documents", error);
 		}
 	};
 
@@ -125,8 +154,21 @@ const Chat: React.FC = () => {
 
 	useEffect(() => {
 		fetchConversations();
+		fetchDocuments();
 		fetchUser();
 	}, []);
+
+	// Conditional polling: Only poll if there are pending or processing documents
+	useEffect(() => {
+		const hasPending = documents.some(
+			(doc) => doc.status === "pending" || doc.status === "processing"
+		);
+
+		if (hasPending) {
+			const interval = setInterval(fetchDocuments, 5000);
+			return () => clearInterval(interval);
+		}
+	}, [documents]);
 
 	const sendMessage = async () => {
 		if (!input.trim()) return;
@@ -178,9 +220,9 @@ const Chat: React.FC = () => {
 	};
 
 	return (
-		<div className="flex h-screen bg-gray-900 text-white">
+		<div className="flex h-screen bg-charcoal_blue-100 text-ash_grey-900">
 			{/* Sidebar */}
-			<div className="w-64 bg-gray-800 p-4 flex flex-col border-r border-gray-700">
+			<div className="w-64 bg-charcoal_blue-200 p-4 flex flex-col border-r border-charcoal_blue-300">
 				<div className="mb-6">
 					<h1 className="text-xl font-bold">AI Assistant</h1>
 				</div>
@@ -189,15 +231,15 @@ const Chat: React.FC = () => {
 						setConversationId(null);
 						setMessages([]);
 					}}
-					className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 p-3 rounded-lg mb-4 transition-colors w-full"
+					className="flex items-center gap-2 bg-deep_teal-500 hover:bg-deep_teal-600 p-3 rounded-lg mb-4 transition-colors w-full text-white"
 				>
 					<Plus size={20} />
 					<span>New Chat</span>
 				</button>
 
 				{/* Drive Integration */}
-				<div className="mb-4 p-3 bg-gray-700 rounded-lg">
-					<h3 className="text-sm font-semibold mb-2 text-gray-300">
+				<div className="mb-4 p-3 bg-charcoal_blue-300 rounded-lg">
+					<h3 className="text-sm font-semibold mb-2 text-ash_grey-600">
 						Integrations
 					</h3>
 					{!isDriveConnected ? (
@@ -227,6 +269,52 @@ const Chat: React.FC = () => {
 							</button>
 						</div>
 					)}
+				</div>
+
+				{/* Documents List */}
+				<div className="mb-4 p-3 bg-charcoal_blue-300 rounded-lg">
+					<h3 className="text-sm font-semibold mb-2 text-ash_grey-600 flex items-center gap-2">
+						<FileText size={16} />
+						Documents
+					</h3>
+					<div className="space-y-1 max-h-32 overflow-y-auto">
+						{documents.length === 0 ? (
+							<div className="text-xs text-gray-500 italic">
+								No documents
+							</div>
+						) : (
+							documents.map((doc) => (
+								<div
+									key={doc.id}
+									className="text-xs text-gray-400 flex items-center gap-2"
+									title={doc.error_message || doc.filename}
+								>
+									{doc.status === "completed" && (
+										<CheckCircle
+											size={12}
+											className="text-green-500"
+										/>
+									)}
+									{doc.status === "failed" && (
+										<AlertCircle
+											size={12}
+											className="text-red-500"
+										/>
+									)}
+									{(doc.status === "pending" ||
+										doc.status === "processing") && (
+										<Clock
+											size={12}
+											className="text-yellow-500 animate-pulse"
+										/>
+									)}
+									<span className="truncate flex-1">
+										{doc.filename}
+									</span>
+								</div>
+							))
+						)}
+					</div>
 				</div>
 
 				<div className="flex-1 overflow-y-auto">
@@ -279,8 +367,8 @@ const Chat: React.FC = () => {
 							<div
 								className={`max-w-3xl ${
 									msg.role === "user"
-										? "bg-blue-600 p-4 rounded-lg"
-										: "text-gray-100 pl-0"
+										? "bg-dark_slate_grey-500 p-4 rounded-lg text-white"
+										: "text-ash_grey-900 pl-0"
 								}`}
 							>
 								<p className="whitespace-pre-wrap">
@@ -299,7 +387,7 @@ const Chat: React.FC = () => {
 					))}
 					{loading && (
 						<div className="flex justify-start">
-							<div className="max-w-3xl p-4 rounded-lg bg-gray-700 animate-pulse">
+							<div className="max-w-3xl p-4 rounded-lg bg-charcoal_blue-300 animate-pulse">
 								<p>Thinking...</p>
 							</div>
 						</div>
@@ -307,9 +395,9 @@ const Chat: React.FC = () => {
 				</div>
 
 				{/* Input Area */}
-				<div className="p-4 bg-gray-800 border-t border-gray-700">
+				<div className="p-4 bg-charcoal_blue-200 border-t border-charcoal_blue-300">
 					<div className="max-w-4xl mx-auto relative flex items-center gap-2">
-						<FileUpload />
+						<FileUpload onUploadSuccess={fetchDocuments} />
 						<div className="relative flex-1">
 							<input
 								type="text"
@@ -319,12 +407,12 @@ const Chat: React.FC = () => {
 									e.key === "Enter" && sendMessage()
 								}
 								placeholder="Message Personal AI..."
-								className="w-full bg-gray-700 text-white rounded-xl pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+								className="w-full bg-charcoal_blue-300 text-ash_grey-900 rounded-xl pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-muted_teal-500 placeholder-ash_grey-400"
 							/>
 							<button
 								onClick={sendMessage}
 								disabled={loading || !input.trim()}
-								className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+								className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-deep_teal-500 rounded-lg hover:bg-deep_teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
 							>
 								<Send size={20} />
 							</button>

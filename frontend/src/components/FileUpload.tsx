@@ -4,7 +4,11 @@ import { Paperclip, X, FileText } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-const FileUpload: React.FC = () => {
+interface FileUploadProps {
+	onUploadSuccess?: () => void;
+}
+
+const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
 	const [uploading, setUploading] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -17,6 +21,12 @@ const FileUpload: React.FC = () => {
 
 		if (file.type !== "application/pdf") {
 			setMessage("Only PDF files are allowed.");
+			setTimeout(() => setMessage(null), 3000);
+			return;
+		}
+
+		if (file.size > 10 * 1024 * 1024) {
+			setMessage("File too large. Limit is 10MB.");
 			setTimeout(() => setMessage(null), 3000);
 			return;
 		}
@@ -40,6 +50,9 @@ const FileUpload: React.FC = () => {
 				}
 			);
 			setMessage(`Uploaded ${file.name} successfully!`);
+			if (onUploadSuccess) {
+				onUploadSuccess();
+			}
 		} catch (error) {
 			console.error("Upload failed", error);
 			setMessage("Failed to upload file.");
@@ -75,7 +88,7 @@ const FileUpload: React.FC = () => {
 					{uploading ? (
 						<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
 					) : (
-						<FileText size={14} className="text-blue-400" />
+						<FileText size={14} className="text-muted_teal-500" />
 					)}
 					<span>{message}</span>
 				</div>

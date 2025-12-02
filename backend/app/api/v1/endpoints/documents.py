@@ -1,39 +1,33 @@
-from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from typing import Any, List
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.models import user as models
+from app.models.document import Document
 from app.services.processing.pdf_processor import pdf_processor
 from app.services.vector_db import vector_db
+from app.db.session import SessionLocal
 
 router = APIRouter()
 
-@router.post("/upload/pdf")
-async def upload_pdf(
-    file: UploadFile = File(...),
-    db: Session = Depends(deps.get_db),
-    current_user: models.User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Upload a PDF file, extract text, and index it for RAG.
-    """
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="File must be a PDF")
-
+def process_pdf_background(document_id: int, file_content: bytes):
+    db = SessionLocal()
     try:
-        contents = await file.read()
-        text = pdf_processor.extract_text(contents)
+        doc = db.query(Document).filter(Document.id == document_id).first()
+        if not doc:
+            return
         
+        doc.status = "processing"
+        db.commit()
+        
+        text = pdf_processor.extract_text(file_content)
         if not text:
-             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+            doc.status = "failed"
+            doc.error_message = "Could not extract text"
+            db.commit()
+            return
 
-        # Indexing
-        # For better RAG, we should chunk the text. 
-        # For this MVP, we'll do simple chunking by character count if it's too large, 
-        # or rely on the vector DB to handle it (though Chroma has limits).
-        # Let's do a simple split for now.
-        
         chunk_size = 1000
         overlap = 100
         chunks = []
@@ -43,15 +37,70 @@ async def upload_pdf(
             
         for i, chunk in enumerate(chunks):
             vector_db.index_document(
-                user_id=current_user.id,
+                user_id=doc.user_id,
                 text=chunk,
                 source_metadata={
                     "source_app": "pdf_upload",
-                    "source_url": f"{file.filename}_part_{i}"
+                    "source_url": f"{doc.filename}_part_{i}"
                 }
             )
             
-        return {"message": f"Successfully processed {file.filename}. Indexed {len(chunks)} chunks."}
+        doc.status = "completed"
+        db.commit()
+        
+    except Exception as e:
+        print(f"Error processing PDF {document_id}: {e}")
+        doc.status = "failed"
+        doc.error_message = str(e)
+        db.commit()
+    finally:
+        db.close()
+
+@router.post("/upload/pdf")
+async def upload_pdf(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Upload a PDF file, extract text, and index it for RAG (Background).
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    try:
+        contents = await file.read()
+        
+        if len(contents) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Limit is 10MB.")
+
+        # Create Document record immediately
+        doc = Document(
+            user_id=current_user.id,
+            filename=file.filename,
+            file_size=len(contents),
+            status="pending"
+        )
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
+        
+        # Enqueue background task
+        background_tasks.add_task(process_pdf_background, doc.id, contents)
+
+        return {"message": "File uploaded. Processing in background.", "document_id": doc.id, "status": "pending"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to initiate upload: {str(e)}")
+
+@router.get("/", response_model=List[dict])
+def get_documents(
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get all uploaded documents for the current user.
+    """
+    documents = db.query(Document).filter(Document.user_id == current_user.id).order_by(Document.created_at.desc()).all()
+    return [{"id": d.id, "filename": d.filename, "created_at": d.created_at, "file_size": d.file_size, "status": d.status, "error_message": d.error_message} for d in documents]
