@@ -34,7 +34,7 @@ def check_server_health():
 def check_llm_connectivity():
     print("\n--- Checking LLM Connectivity ---")
     api_key = os.environ.get("HUGGINGFACE_API_KEY")
-    model_id = os.environ.get("HUGGINGFACE_MODEL", "mistralai/Mistral-7B-Instruct-v0.2") # Default to what we set
+    model_id = os.environ.get("HUGGINGFACE_MODEL", "openai/gpt-oss-120b") # Default to free model
     
     if not api_key:
         print("❌ HUGGINGFACE_API_KEY not found in environment variables.")
@@ -45,14 +45,11 @@ def check_llm_connectivity():
     print(f"ℹ️  Using Model: {model_id}")
     
     try:
-        from openai import OpenAI
+        from huggingface_hub import InferenceClient
         
-        client = OpenAI(
-            base_url="https://router.huggingface.co/v1",
-            api_key=api_key
-        )
+        client = InferenceClient(token=api_key)
         
-        print("   Sending request to Hugging Face (OpenAI-compatible)...")
+        print("   Sending request to Hugging Face (InferenceClient)...")
         completion = client.chat.completions.create(
             model=model_id,
             messages=[

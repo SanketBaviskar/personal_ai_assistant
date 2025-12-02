@@ -1,5 +1,5 @@
 import os
-from openai import OpenAI
+from huggingface_hub import InferenceClient
 from typing import List, Dict
 from app.core.config import settings
 
@@ -12,15 +12,12 @@ class LLMGenerator:
             print("WARNING: HUGGINGFACE_API_KEY not set. Using Mock LLM.")
             self.client = None
         else:
-            # Use OpenAI client with HF router (OpenAI-compatible API)
-            self.client = OpenAI(
-                base_url="https://router.huggingface.co/v1",
-                api_key=self.api_key
-            )
+            # Use InferenceClient from huggingface_hub
+            self.client = InferenceClient(token=self.api_key)
 
     def generate_response(self, query: str, context: List[Dict], history: List[Dict]) -> str:
         """
-        Generates a response using Hugging Face Inference API (OpenAI-compatible).
+        Generates a response using Hugging Face Inference API via InferenceClient.
         """
         if not self.client:
              return f"Mock AI Response to '{query}' based on {len(context)} context items. (Set HUGGINGFACE_API_KEY to use real model)"
@@ -53,14 +50,13 @@ Context:
             "content": query
         })
 
-        # 4. Call HF API via OpenAI client
+        # 4. Call HF API via InferenceClient
         try:
             completion = self.client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
                 max_tokens=512,
-                temperature=0.7,
-                top_p=0.95
+                temperature=0.7
             )
             
             return completion.choices[0].message.content.strip()
