@@ -1,6 +1,7 @@
 import sys
 import os
-sys.path.append(os.getcwd())
+# Add parent directory to path to import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.rag_service import rag_service
 from app.services.google_service import google_drive_service

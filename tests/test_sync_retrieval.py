@@ -1,9 +1,13 @@
+import sys
+import os
+# Add parent directory to path to import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.services.processing.sync_service import sync_service
 from app.services.ai_core.retriever import retriever
 from app.services.vector_db import vector_db
 from app.core.config import settings
 import shutil
-import os
 import chromadb
 
 def test_sync_and_retrieval():
@@ -16,8 +20,10 @@ def test_sync_and_retrieval():
     from app.db.session import SessionLocal
     
     db = SessionLocal()
-    credential_service.store_credentials(db, user_id, "notion", {"api_key": "mock_key"})
-    db.close()
+    try:
+        credential_service.store_credentials(db, user_id, "notion", {"api_key": "mock_key"})
+    finally:
+        db.close()
 
     # 1. Run Sync (Mocked Connectors will return data)
     print("Running Sync...")
@@ -43,7 +49,10 @@ if __name__ == "__main__":
     settings.CHROMA_DB_PATH = TEST_DB_PATH
     
     if os.path.exists(TEST_DB_PATH):
-        shutil.rmtree(TEST_DB_PATH)
+        try:
+            shutil.rmtree(TEST_DB_PATH)
+        except Exception as e:
+            print(f"Warning: Could not remove test DB: {e}")
         
     try:
         # Re-init DB with test path

@@ -1,8 +1,13 @@
+import sys
+import os
+# Add parent directory to path to import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.services.vector_db import vector_db
 from app.services.sanitizer import sanitizer
 import shutil
-import os
 import chromadb
+from app.core.config import settings
 
 def test_sanitizer():
     print("Testing Sanitizer...")
@@ -63,8 +68,6 @@ def test_vector_db():
 
     print("Vector DB ACL Test Passed!")
 
-from app.core.config import settings
-
 if __name__ == "__main__":
     # Use a test DB path to avoid locks
     TEST_DB_PATH = "./chroma_db_test"
@@ -72,7 +75,10 @@ if __name__ == "__main__":
     
     # Clean up previous DB if exists
     if os.path.exists(TEST_DB_PATH):
-        shutil.rmtree(TEST_DB_PATH)
+        try:
+            shutil.rmtree(TEST_DB_PATH)
+        except Exception as e:
+            print(f"Warning: Could not remove test DB: {e}")
         
     try:
         # Re-initialize vector_db with new path
@@ -83,6 +89,4 @@ if __name__ == "__main__":
         test_vector_db()
     finally:
         # Cleanup
-        # Note: Chroma client might hold lock, so cleanup might fail on Windows. 
-        # We'll leave it or try best effort.
         pass

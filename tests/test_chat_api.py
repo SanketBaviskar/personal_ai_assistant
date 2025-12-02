@@ -1,7 +1,8 @@
 import requests
 import sys
 
-BASE_URL = "http://localhost:8000/api/v1"
+# Update port to 8001
+BASE_URL = "http://localhost:8001/api/v1"
 
 def get_auth_token():
     payload = {
