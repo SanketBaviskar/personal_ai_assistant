@@ -1,7 +1,8 @@
 import requests
 import sys
 
-BASE_URL = "http://localhost:8000/api/v1"
+# Update port to 8001
+BASE_URL = "http://localhost:8001/api/v1"
 
 def get_auth_token():
     payload = {
@@ -33,7 +34,8 @@ def test_connector(token, provider, credentials):
     if resp.status_code == 200:
         data = resp.json()
         print(f"Sync Successful. Fetched {len(data['data'])} items.")
-        print("Sample Item:", data['data'][0])
+        if len(data['data']) > 0:
+            print("Sample Item:", data['data'][0])
         return True
     else:
         print(f"Sync Failed: {resp.text}")

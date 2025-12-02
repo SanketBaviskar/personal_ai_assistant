@@ -2,9 +2,12 @@ import requests
 import os
 import sys
 
+# Add parent directory to path to import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Simple .env parser
 def load_env():
-    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
     if os.path.exists(env_path):
         with open(env_path, 'r') as f:
             for line in f:

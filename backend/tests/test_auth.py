@@ -1,7 +1,8 @@
 import requests
 import sys
 
-BASE_URL = "http://localhost:8000/api/v1"
+# Update port to 8001 as per current configuration
+BASE_URL = "http://localhost:8001/api/v1"
 
 def test_signup():
     print("Testing Signup...")
@@ -58,4 +59,4 @@ if __name__ == "__main__":
             sys.exit(1)
         print("\nAll tests passed!")
     except requests.exceptions.ConnectionError:
-        print("\nError: Could not connect to server. Is it running on port 8000?")
+        print(f"\nError: Could not connect to server. Is it running on port 8001?")

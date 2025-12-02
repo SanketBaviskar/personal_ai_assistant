@@ -1,7 +1,11 @@
+import sys
+import os
+# Add parent directory to path to import from app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.services.processing.rag_pipeline import rag_pipeline
 from app.services.vector_db import vector_db
 import shutil
-import os
 import chromadb
 from app.core.config import settings
 
@@ -58,7 +62,10 @@ if __name__ == "__main__":
     settings.CHROMA_DB_PATH = TEST_DB_PATH
     
     if os.path.exists(TEST_DB_PATH):
-        shutil.rmtree(TEST_DB_PATH)
+        try:
+            shutil.rmtree(TEST_DB_PATH)
+        except Exception as e:
+            print(f"Warning: Could not remove test DB: {e}")
         
     try:
         # Re-init DB with test path

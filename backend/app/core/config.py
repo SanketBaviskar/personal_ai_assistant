@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Hugging Face
     HUGGINGFACE_API_KEY: Optional[str] = None
-    HUGGINGFACE_MODEL: str = "mistralai/Mistral-Large-3-675B-Instruct-2512"
+    HUGGINGFACE_MODEL: str = "Qwen/Qwen2.5-72B-Instruct"
 
     class Config:
         env_file = ".env"

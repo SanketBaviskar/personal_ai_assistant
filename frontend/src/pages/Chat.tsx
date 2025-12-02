@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Send, Plus, MessageSquare } from "lucide-react";
+import Typewriter from "../components/Typewriter";
+import FileUpload from "../components/FileUpload";
 import axios from "axios";
 
 interface Message {
@@ -149,7 +151,7 @@ const Chat: React.FC = () => {
 
 			const assistantMsg: Message = {
 				role: "assistant",
-				content: res.data.response,
+				content: res.data.answer,
 			};
 			setMessages((prev) => [...prev, assistantMsg]);
 
@@ -275,14 +277,22 @@ const Chat: React.FC = () => {
 							}`}
 						>
 							<div
-								className={`max-w-3xl p-4 rounded-lg ${
+								className={`max-w-3xl ${
 									msg.role === "user"
-										? "bg-blue-600"
-										: "bg-gray-700"
+										? "bg-blue-600 p-4 rounded-lg"
+										: "text-gray-100 pl-0"
 								}`}
 							>
 								<p className="whitespace-pre-wrap">
-									{msg.content}
+									{msg.role === "assistant" &&
+									idx === messages.length - 1 ? (
+										<Typewriter
+											text={msg.content}
+											speed={10}
+										/>
+									) : (
+										msg.content
+									)}
 								</p>
 							</div>
 						</div>
@@ -298,24 +308,27 @@ const Chat: React.FC = () => {
 
 				{/* Input Area */}
 				<div className="p-4 bg-gray-800 border-t border-gray-700">
-					<div className="max-w-4xl mx-auto relative">
-						<input
-							type="text"
-							value={input}
-							onChange={(e) => setInput(e.target.value)}
-							onKeyDown={(e) =>
-								e.key === "Enter" && sendMessage()
-							}
-							placeholder="Message Personal AI..."
-							className="w-full bg-gray-700 text-white rounded-xl pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
-						/>
-						<button
-							onClick={sendMessage}
-							disabled={loading || !input.trim()}
-							className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-						>
-							<Send size={20} />
-						</button>
+					<div className="max-w-4xl mx-auto relative flex items-center gap-2">
+						<FileUpload />
+						<div className="relative flex-1">
+							<input
+								type="text"
+								value={input}
+								onChange={(e) => setInput(e.target.value)}
+								onKeyDown={(e) =>
+									e.key === "Enter" && sendMessage()
+								}
+								placeholder="Message Personal AI..."
+								className="w-full bg-gray-700 text-white rounded-xl pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+							/>
+							<button
+								onClick={sendMessage}
+								disabled={loading || !input.trim()}
+								className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							>
+								<Send size={20} />
+							</button>
+						</div>
 					</div>
 					<div className="text-center text-xs text-gray-500 mt-2">
 						AI can make mistakes. Check important info.

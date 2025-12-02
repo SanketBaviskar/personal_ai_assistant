@@ -1,0 +1,5 @@
+Messages (4):
+- [user] Hello, this is a test message.
+- [assistant] Hello! I received your test message. Is there anything specific you would like to ask or discuss?
+- [user] Hello, this is a test message.
+- [assistant] Hello! I see this is a test message. Is there any particular question or topic you'd like to explore?
