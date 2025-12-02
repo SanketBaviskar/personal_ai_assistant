@@ -23,11 +23,11 @@ class Settings(BaseSettings):
     # Google
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    GOOGLE_API_KEY: Optional[str] = None
+    # GOOGLE_API_KEY: Optional[str] = None
 
-    # Hugging Face (Deprecated)
-    # HUGGINGFACE_API_KEY: Optional[str] = None
-    # HUGGINGFACE_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.2"
+    # Hugging Face
+    HUGGINGFACE_API_KEY: Optional[str] = None
+    HUGGINGFACE_MODEL: str = "meta-llama/Llama-3.2-3B-Instruct"
 
     class Config:
         env_file = ".env"

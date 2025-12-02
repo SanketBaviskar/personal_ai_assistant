@@ -32,29 +32,41 @@ def check_server_health():
         return False
 
 def check_llm_connectivity():
-    print("\n--- Checking LLM Connectivity (Gemini) ---")
-    api_key = os.environ.get("GOOGLE_API_KEY")
+    print("\n--- Checking LLM Connectivity ---")
+    api_key = os.environ.get("HUGGINGFACE_API_KEY")
+    model_id = os.environ.get("HUGGINGFACE_MODEL", "mistralai/Mistral-7B-Instruct-v0.2") # Default to what we set
     
     if not api_key:
-        print("❌ GOOGLE_API_KEY not found in environment variables.")
+        print("❌ HUGGINGFACE_API_KEY not found in environment variables.")
         return
 
     masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "****"
     print(f"ℹ️  Loaded API Key: {masked_key}")
+    print(f"ℹ️  Using Model: {model_id}")
     
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
+        from openai import OpenAI
         
-        print("   Sending request to Gemini...")
-        response = model.generate_content("Hello, are you working?")
+        client = OpenAI(
+            base_url="https://router.huggingface.co/v1",
+            api_key=api_key
+        )
         
-        if response.text:
-            print("✅ LLM API is ACCESSIBLE")
-            print(f"   Response: {response.text}")
-        else:
-            print("❌ LLM API returned empty response.")
+        print("   Sending request to Hugging Face (OpenAI-compatible)...")
+        completion = client.chat.completions.create(
+            model=model_id,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Hello, are you working?"
+                }
+            ],
+            max_tokens=20
+        )
+        
+        response_text = completion.choices[0].message.content
+        print("✅ LLM API is ACCESSIBLE")
+        print(f"   Response: {response_text}")
             
     except Exception as e:
         print(f"❌ Failed to connect to LLM API: {e}")
