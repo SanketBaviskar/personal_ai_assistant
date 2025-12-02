@@ -1,3 +1,40 @@
-./agent
+# System
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .env
-__pycache__
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js
+node_modules/
+dist/
+build/
+.npm
+.eslintcache
+
+# Project Data
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+uploads/
+*.pdf
+backend/large_file.pdf
+test_output.txt
+
+# IDE
+.vscode/
+.idea/
+./agent
