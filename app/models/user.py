@@ -15,3 +15,4 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     
     conversations = relationship("Conversation", back_populates="user")
+    documents = relationship("Document", back_populates="owner")
