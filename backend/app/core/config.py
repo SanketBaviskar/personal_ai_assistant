@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Hugging Face
     HUGGINGFACE_API_KEY: Optional[str] = None
-    HUGGINGFACE_MODEL: str = "meta-llama/Llama-3.2-3B-Instruct"
+    HUGGINGFACE_MODEL: str = "mistralai/Mistral-Large-3-675B-Instruct-2512"
 
     class Config:
         env_file = ".env"
