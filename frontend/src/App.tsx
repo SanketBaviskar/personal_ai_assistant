@@ -7,6 +7,7 @@ import {
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
+import { Analytics } from "@vercel/analytics/react";
 
 // Replace with your actual Client ID or use env var
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -37,6 +38,7 @@ function App() {
 					<Route path="/" element={<Navigate to="/chat" replace />} />
 				</Routes>
 			</Router>
+			<Analytics />
 		</GoogleOAuthProvider>
 	);
 }
