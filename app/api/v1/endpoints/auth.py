@@ -66,9 +66,6 @@ def login_google(
     import os
 
     try:
-        # Verify the token
-        # CLIENT_ID should be in settings, but for now we can accept any valid token for this app
-        # or strictly verify against a configured CLIENT_ID
         client_id = os.getenv("GOOGLE_CLIENT_ID") 
         id_info = id_token.verify_oauth2_token(google_auth.token, requests.Request(), client_id)
 
@@ -78,23 +75,17 @@ def login_google(
         if not email:
              raise HTTPException(status_code=400, detail="Invalid Google Token: No email found")
 
-        # Check if user exists
         user = user_service.get_by_email(db, email=email)
         if not user:
-            # Create user
-            # We need a random password or handle password-less
-            # For now, we generate a random password
             import secrets
             random_password = secrets.token_urlsafe(16)
             user_in = schemas.UserCreate(email=email, password=random_password)
             user = user_service.create(db, obj_in=user_in)
-            # Update google_sub
             user.google_sub = google_sub
             db.add(user)
             db.commit()
             db.refresh(user)
         else:
-            # Update google_sub if not set
             if not user.google_sub:
                 user.google_sub = google_sub
                 db.add(user)
@@ -113,7 +104,6 @@ def login_google(
         }
 
     except ValueError as e:
-        # Invalid token
         raise HTTPException(status_code=400, detail=f"Invalid Google Token: {str(e)}")
 
 @router.post("/google-drive", response_model=schemas.User)
@@ -129,7 +119,6 @@ def connect_google_drive(
     from google_auth_oauthlib.flow import Flow
     
     try:
-        # Create flow instance to exchange code
         flow = Flow.from_client_config(
             {
                 "web": {
@@ -146,7 +135,6 @@ def connect_google_drive(
         flow.fetch_token(code=auth_data.code)
         credentials = flow.credentials
         
-        # Update user with tokens
         current_user.google_access_token = credentials.token
         current_user.google_refresh_token = credentials.refresh_token
         current_user.google_drive_connected = True
