@@ -1,12 +1,27 @@
+"""
+Service for RAG (Retrieval-Augmented Generation) operations.
+Handles text chunking, document ingestion, and querying.
+"""
 from typing import List, Dict, Any
 from app.services.vector_db import vector_db
 from app.services.google_service import google_drive_service
 from app.models.user import User
 
 class RAGService:
+    """
+    Service class for RAG operations.
+    """
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """
-        Simple text chunking.
+        Splits text into overlapping chunks.
+
+        Args:
+            text (str): The input text to chunk.
+            chunk_size (int): The maximum size of each chunk.
+            overlap (int): The number of characters to overlap between chunks.
+
+        Returns:
+            List[str]: A list of text chunks.
         """
         chunks = []
         start = 0
@@ -19,14 +34,15 @@ class RAGService:
     def ingest_google_doc(self, user: User, file_id: str):
         """
         Fetches a Google Doc, chunks it, and indexes it in the Vector DB.
+
+        Args:
+            user (User): The user performing the ingestion.
+            file_id (str): The ID of the Google Doc to ingest.
         """
-        # 1. Fetch content
         content = google_drive_service.get_file_content(user, file_id)
         
-        # 2. Chunk content
         chunks = self.chunk_text(content)
         
-        # 3. Index chunks
         for i, chunk in enumerate(chunks):
             metadata = {
                 "source_app": "google_drive",
@@ -34,14 +50,20 @@ class RAGService:
                 "file_id": file_id,
                 "chunk_index": i
             }
-            # We might want to include file name in metadata, but we'd need to fetch it separately or pass it in.
-            # For now, we'll skip it or fetch it if needed.
             
             vector_db.index_document(user.id, chunk, metadata)
 
     def query(self, user_id: int, query_text: str, k: int = 5) -> List[Dict[str, Any]]:
         """
-        Queries the Vector DB.
+        Queries the Vector DB for relevant context.
+
+        Args:
+            user_id (int): The ID of the user.
+            query_text (str): The query string.
+            k (int): The number of results to return.
+
+        Returns:
+            List[Dict[str, Any]]: A list of relevant document chunks with metadata.
         """
         return vector_db.query(user_id, query_text, n_results=k)
 

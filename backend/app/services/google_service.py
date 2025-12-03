@@ -1,3 +1,7 @@
+"""
+Service for interacting with Google Drive API.
+Handles authentication, file listing, and content retrieval.
+"""
 from typing import List, Optional
 import json
 from google.oauth2.credentials import Credentials
@@ -8,10 +12,22 @@ from app.core.config import settings
 from app.models.user import User
 
 class GoogleDriveService:
+    """
+    Service class for Google Drive operations.
+    """
     def __init__(self):
         self.scopes = ['https://www.googleapis.com/auth/drive.readonly']
 
     def get_credentials(self, user: User) -> Optional[Credentials]:
+        """
+        Retrieves and refreshes Google OAuth credentials for a user.
+
+        Args:
+            user (User): The user object containing OAuth tokens.
+
+        Returns:
+            Optional[Credentials]: Valid Google Credentials object or None.
+        """
         if not user.google_access_token:
             return None
         
@@ -27,9 +43,6 @@ class GoogleDriveService:
         if creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
-                # Update user tokens in DB (this requires a DB session, which we might need to pass or handle differently)
-                # For now, we return the refreshed creds. The caller should ideally update the DB.
-                # In a real app, we'd want to update the DB here.
             except Exception as e:
                 print(f"Error refreshing token: {e}")
                 return None
@@ -37,13 +50,22 @@ class GoogleDriveService:
         return creds
 
     def list_files(self, user: User, limit: int = 10) -> List[dict]:
+        """
+        Lists Google Docs files from the user's Drive.
+
+        Args:
+            user (User): The user to list files for.
+            limit (int): Maximum number of files to return.
+
+        Returns:
+            List[dict]: List of file metadata objects.
+        """
         creds = self.get_credentials(user)
         if not creds:
             raise Exception("User not authenticated with Google Drive")
 
         service = build('drive', 'v3', credentials=creds)
         
-        # Query for Google Docs only for now
         results = service.files().list(
             q="mimeType='application/vnd.google-apps.document' and trashed=false",
             pageSize=limit,
@@ -53,13 +75,22 @@ class GoogleDriveService:
         return results.get('files', [])
 
     def get_file_content(self, user: User, file_id: str) -> str:
+        """
+        Exports a Google Doc to plain text.
+
+        Args:
+            user (User): The user requesting the file.
+            file_id (str): The ID of the file to retrieve.
+
+        Returns:
+            str: The plain text content of the file.
+        """
         creds = self.get_credentials(user)
         if not creds:
             raise Exception("User not authenticated with Google Drive")
 
         service = build('drive', 'v3', credentials=creds)
         
-        # Export Google Doc to plain text
         try:
             result = service.files().export_media(
                 fileId=file_id,

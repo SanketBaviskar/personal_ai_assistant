@@ -115,7 +115,7 @@ const Chat: React.FC = () => {
 					`${API_URL}/api/v1/auth/google-drive`,
 					{
 						code: codeResponse.code,
-						redirect_uri: window.location.origin, // or 'postmessage' depending on setup
+						redirect_uri: window.location.origin,
 					},
 					{
 						headers: { Authorization: `Bearer ${token}` },
@@ -158,7 +158,6 @@ const Chat: React.FC = () => {
 		fetchUser();
 	}, []);
 
-	// Conditional polling: Only poll if there are pending or processing documents
 	useEffect(() => {
 		const hasPending = documents.some(
 			(doc) => doc.status === "pending" || doc.status === "processing"
@@ -184,7 +183,7 @@ const Chat: React.FC = () => {
 				`${API_URL}/api/v1/chat/`,
 				{
 					query: input,
-					conversation_id: conversationId, // Send current ID (or null)
+					conversation_id: conversationId,
 				},
 				{
 					headers: { Authorization: `Bearer ${token}` },
@@ -197,10 +196,8 @@ const Chat: React.FC = () => {
 			};
 			setMessages((prev) => [...prev, assistantMsg]);
 
-			// Update conversation ID from response
 			if (res.data.conversation_id) {
 				setConversationId(res.data.conversation_id);
-				// Refresh list if it was a new conversation
 				if (!conversationId) {
 					fetchConversations();
 				}
@@ -221,10 +218,9 @@ const Chat: React.FC = () => {
 
 	return (
 		<div className="flex h-screen bg-charcoal_blue-100 text-ash_grey-900">
-			{/* Sidebar */}
 			<div className="w-64 bg-charcoal_blue-200 p-4 flex flex-col border-r border-charcoal_blue-300">
 				<div className="mb-6">
-					<h1 className="text-xl font-bold">AI Assistant</h1>
+					<h1 className="text-xl font-bold">Exo</h1>
 				</div>
 				<button
 					onClick={() => {
@@ -237,7 +233,6 @@ const Chat: React.FC = () => {
 					<span>New Chat</span>
 				</button>
 
-				{/* Drive Integration */}
 				<div className="mb-4 p-3 bg-charcoal_blue-300 rounded-lg">
 					<h3 className="text-sm font-semibold mb-2 text-ash_grey-600">
 						Integrations
@@ -271,7 +266,6 @@ const Chat: React.FC = () => {
 					)}
 				</div>
 
-				{/* Documents List */}
 				<div className="mb-4 p-3 bg-charcoal_blue-300 rounded-lg">
 					<h3 className="text-sm font-semibold mb-2 text-ash_grey-600 flex items-center gap-2">
 						<FileText size={16} />
@@ -345,7 +339,6 @@ const Chat: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Main Chat Area */}
 			<div className="flex-1 flex flex-col">
 				<div className="flex-1 overflow-y-auto p-6 space-y-6">
 					{messages.length === 0 && (
@@ -394,7 +387,6 @@ const Chat: React.FC = () => {
 					)}
 				</div>
 
-				{/* Input Area */}
 				<div className="p-4 bg-charcoal_blue-200 border-t border-charcoal_blue-300">
 					<div className="max-w-4xl mx-auto relative flex items-center gap-2">
 						<FileUpload onUploadSuccess={fetchDocuments} />
