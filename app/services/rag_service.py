@@ -31,27 +31,47 @@ class RAGService:
             start += chunk_size - overlap
         return chunks
 
-    def ingest_google_doc(self, user: User, file_id: str):
+    def ingest_file(self, user: User, file_id: str, mime_type: str):
         """
-        Fetches a Google Doc, chunks it, and indexes it in the Vector DB.
+        Fetches a file from Drive, processes it based on type, and indexes it.
 
         Args:
             user (User): The user performing the ingestion.
-            file_id (str): The ID of the Google Doc to ingest.
+            file_id (str): The ID of the file to ingest.
+            mime_type (str): The MIME type of the file.
         """
-        content = google_drive_service.get_file_content(user, file_id)
-        
-        chunks = self.chunk_text(content)
-        
-        for i, chunk in enumerate(chunks):
-            metadata = {
-                "source_app": "google_drive",
-                "source_url": f"https://docs.google.com/document/d/{file_id}",
-                "file_id": file_id,
-                "chunk_index": i
-            }
+        try:
+            content = google_drive_service.get_file_content(user, file_id, mime_type)
             
-            vector_db.index_document(user.id, chunk, metadata)
+            text_to_index = ""
+            
+            if mime_type == 'application/vnd.google-apps.document':
+                text_to_index = content
+            elif mime_type == 'application/pdf':
+                from app.services.processing.pdf_processor import pdf_processor
+                text_to_index = pdf_processor.extract_text(content)
+            elif mime_type in ['image/jpeg', 'image/png']:
+                from app.services.processing.image_processor import image_processor
+                text_to_index = image_processor.describe_image(content, mime_type)
+            
+            if not text_to_index:
+                print(f"No text extracted for file {file_id} ({mime_type})")
+                return
+
+            chunks = self.chunk_text(text_to_index)
+            
+            for i, chunk in enumerate(chunks):
+                metadata = {
+                    "source_app": "google_drive",
+                    "source_url": f"https://docs.google.com/document/d/{file_id}" if mime_type == 'application/vnd.google-apps.document' else f"drive://{file_id}",
+                    "file_id": file_id,
+                    "mime_type": mime_type,
+                    "chunk_index": i
+                }
+                
+                vector_db.index_document(user.id, chunk, metadata)
+        except Exception as e:
+            print(f"Error ingesting file {file_id}: {e}")
 
     def query(self, user_id: int, query_text: str, k: int = 5) -> List[Dict[str, Any]]:
         """
