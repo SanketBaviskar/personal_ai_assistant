@@ -38,3 +38,4 @@ test_output.txt
 .vscode/
 .idea/
 ./agent
+./frontend
