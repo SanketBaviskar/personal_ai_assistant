@@ -2,7 +2,7 @@
 Service for interacting with Google Drive API.
 Handles authentication, file listing, and content retrieval.
 """
-from typing import List, Optional
+from typing import List, Optional, Any, Union
 import json
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -67,23 +67,24 @@ class GoogleDriveService:
         service = build('drive', 'v3', credentials=creds)
         
         results = service.files().list(
-            q="mimeType='application/vnd.google-apps.document' and trashed=false",
+            q="(mimeType='application/vnd.google-apps.document' or mimeType='application/pdf' or mimeType='image/jpeg' or mimeType='image/png') and trashed=false",
             pageSize=limit,
             fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime)"
         ).execute()
         
         return results.get('files', [])
 
-    def get_file_content(self, user: User, file_id: str) -> str:
+    def get_file_content(self, user: User, file_id: str, mime_type: str = 'application/vnd.google-apps.document') -> Any:
         """
-        Exports a Google Doc to plain text.
+        Exports a Google Doc to plain text or downloads binary content.
 
         Args:
             user (User): The user requesting the file.
             file_id (str): The ID of the file to retrieve.
+            mime_type (str): The MIME type of the file.
 
         Returns:
-            str: The plain text content of the file.
+            Union[str, bytes]: The content of the file.
         """
         creds = self.get_credentials(user)
         if not creds:
@@ -92,11 +93,16 @@ class GoogleDriveService:
         service = build('drive', 'v3', credentials=creds)
         
         try:
-            result = service.files().export_media(
-                fileId=file_id,
-                mimeType='text/plain'
-            ).execute()
-            return result.decode('utf-8')
+            if mime_type == 'application/vnd.google-apps.document':
+                result = service.files().export_media(
+                    fileId=file_id,
+                    mimeType='text/plain'
+                ).execute()
+                return result.decode('utf-8')
+            else:
+                # Binary download for PDF, Images, etc.
+                result = service.files().get_media(fileId=file_id).execute()
+                return result
         except Exception as e:
             print(f"Error getting file content: {e}")
             raise e

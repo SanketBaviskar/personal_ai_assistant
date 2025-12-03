@@ -29,7 +29,7 @@ def sync_drive_files(
         for file in files:
             # We might want to check if file is already ingested or modified
             # For now, we just re-ingest
-            rag_service.ingest_google_doc(current_user, file['id'])
+            rag_service.ingest_file(current_user, file['id'], file['mimeType'])
             count += 1
             
         return {"message": f"Successfully synced {count} files"}
