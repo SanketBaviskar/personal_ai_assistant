@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.api import deps
 from app.models import user as models
@@ -30,22 +31,22 @@ class ChatResponse(BaseModel):
     conversation_id: int
 
 @router.post("/", response_model=ChatResponse)
-def chat(
+async def chat(
     request: ChatRequest,
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Chat with the Personal AI.
-    1. Retrieve Context
-    2. Get/Create Conversation History
-    3. Generate Answer
-    4. Save to Memory
+    Chat with the Personal AI (Async).
+    1. Retrieve Context (Async)
+    2. Get/Create Conversation History (Sync -> Thread)
+    3. Generate Answer (Async)
+    4. Save to Memory (Sync -> Thread)
     """
     # 1. Retrieve Context
     try:
         print(f"Retrieving context for query: {request.query} (Conversation: {request.conversation_id})")
-        retrieval_result = retriever.retrieve_context(current_user.id, request.query, conversation_id=request.conversation_id)
+        retrieval_result = await retriever.retrieve_context(current_user.id, request.query, conversation_id=request.conversation_id)
         context_docs = retrieval_result["chunks"]
         context_stats = retrieval_result["stats"]
         print(f"Retrieved {len(context_docs)} docs")
@@ -55,25 +56,29 @@ def chat(
         context_docs = []
         context_stats = {}
     
-    # 2. Get/Create Conversation
-    conversation = memory_service.get_or_create_conversation(db, current_user.id, request.conversation_id)
+    # 2. Get/Create Conversation (DB Op)
+    conversation = await run_in_threadpool(
+        memory_service.get_or_create_conversation, db, current_user.id, request.conversation_id
+    )
     
-    # 3. Get History
-    history = memory_service.get_history(db, conversation.id)
+    # 3. Get History (DB Op)
+    history = await run_in_threadpool(
+        memory_service.get_history, db, conversation.id
+    )
     
-    # 4. Generate Answer
+    # 4. Generate Answer (Async / IO Bound)
     try:
         print("Generating LLM response...")
         # Passing stats to LLM generator
-        answer = llm_generator.generate_response(request.query, context_docs, history, context_stats)
+        answer = await llm_generator.generate_response(request.query, context_docs, history, context_stats)
         print("LLM response generated")
     except Exception as e:
         print(f"Error generating LLM response: {e}")
         raise HTTPException(status_code=500, detail=f"LLM Generation failed: {str(e)}")
     
-    # 5. Save to Memory
-    memory_service.add_message(db, conversation.id, "user", request.query)
-    memory_service.add_message(db, conversation.id, "assistant", answer)
+    # 5. Save to Memory (DB Op)
+    await run_in_threadpool(memory_service.add_message, db, conversation.id, "user", request.query)
+    await run_in_threadpool(memory_service.add_message, db, conversation.id, "assistant", answer)
     
     # Format Sources
     sources = []
@@ -90,36 +95,39 @@ def chat(
     )
 
 @router.get("/conversations", response_model=List[dict])
-def get_conversations(
+async def get_conversations(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Get all conversations for the current user.
+    Get all conversations for the current user (Async).
     """
-    # We need to add a method to memory_service to list conversations
-    # For now, we'll do a direct query here or add it to memory_service
-    # Let's add it to memory_service first.
-    # Wait, I can't modify memory_service in this same tool call.
-    # I'll do a direct query for now to save time, or better, add it to memory_service in next step.
-    # Actually, I'll add the endpoint definition here and implement the service method in the next step.
-    conversations = memory_service.get_user_conversations(db, current_user.id)
+    conversations = await run_in_threadpool(memory_service.get_user_conversations, db, current_user.id)
     return conversations
 
 @router.get("/{conversation_id}/messages", response_model=List[dict])
-def get_conversation_messages(
+async def get_conversation_messages(
     conversation_id: int,
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Get messages for a specific conversation.
+    Get messages for a specific conversation (Async).
     """
     # Verify ownership
-    conversation = memory_service.get_or_create_conversation(db, current_user.id, conversation_id)
+    conversation = await run_in_threadpool(memory_service.get_or_create_conversation, db, current_user.id, conversation_id)
     if conversation.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    history = memory_service.get_history(db, conversation_id, limit=100)
+    history = await run_in_threadpool(memory_service.get_history, db, conversation_id, limit=100)
     return history
+@router.delete("/{conversation_id}", response_model=dict)
+async def delete_conversation(
+    conversation_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_active_user),
+) -> Any:
+    """Delete a conversation and its messages for the current user."""
+    await run_in_threadpool(memory_service.delete_conversation, db, conversation_id, current_user.id)
+    return {"detail": "Conversation deleted"}
 

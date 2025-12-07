@@ -18,37 +18,41 @@ class RAGService:
     Service class for RAG operations.
     """
 
-    def ingest_file(self, user: User, file_id: str, mime_type: str, file_name: str = None):
+    async def ingest_file(self, user: User, file_id: str, mime_type: str, file_name: str = None):
         """
-        Fetches a file from Drive, processes it based on type, and indexes it.
+        Fetches a file from Drive, processes it based on type, and indexes it (Async).
         """
         if not google_drive_service:
             print("Google Drive Service not available")
             return
 
         try:
-            content = google_drive_service.get_file_content(user, file_id, mime_type)
+            from starlette.concurrency import run_in_threadpool
+            
+            # Blocking Drive API Call -> Thread
+            content = await run_in_threadpool(google_drive_service.get_file_content, user, file_id, mime_type)
             
             text_to_index = ""
             
+            # Blocking CPU tasks -> Thread
             if mime_type == 'application/vnd.google-apps.document':
                 text_to_index = content
             elif mime_type == 'application/pdf':
                 from app.services.processing.pdf_processor import pdf_processor
-                text_to_index = pdf_processor.extract_text(content)
+                text_to_index = await run_in_threadpool(pdf_processor.extract_text, content)
             elif mime_type in ['image/jpeg', 'image/png']:
                 from app.services.processing.image_processor import image_processor
-                text_to_index = image_processor.extract_text(content)
+                text_to_index = await run_in_threadpool(image_processor.extract_text, content)
             elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
                 from app.services.processing.docx_processor import docx_processor
-                text_to_index = docx_processor.extract_text(content)
+                text_to_index = await run_in_threadpool(docx_processor.extract_text, content)
             
             if not text_to_index:
                 print(f"No text extracted for file {file_id} ({mime_type})")
                 return
 
-            # Use the robust ChunkerService
-            chunks = chunker.chunk_text(text_to_index)
+            # Blocking CPU task -> Thread
+            chunks = await run_in_threadpool(chunker.chunk_text, text_to_index)
             
             for i, chunk in enumerate(chunks):
                 metadata = {
@@ -60,14 +64,18 @@ class RAGService:
                     "chunk_index": i
                 }
                 
-                pgvector_store.index_document(user.id, chunk, metadata)
+                # Async Vector Store Call
+                await pgvector_store.index_document(user.id, chunk, metadata)
+                
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print(f"Error ingesting file {file_id}: {e}")
 
-    def query(self, user_id: int, query_text: str, k: int = 5) -> List[Dict[str, Any]]:
+    async def query(self, user_id: int, query_text: str, k: int = 5) -> List[Dict[str, Any]]:
         """
-        Queries the Vector DB for relevant context.
+        Queries the Vector DB for relevant context (Async).
         """
-        return pgvector_store.search(user_id, query_text, top_k=k)
+        return await pgvector_store.search(user_id, query_text, top_k=k)
 
 rag_service = RAGService()

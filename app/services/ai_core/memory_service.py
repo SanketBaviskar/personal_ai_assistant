@@ -32,4 +32,15 @@ class MemoryService:
         return [{"id": c.id, "title": c.title, "updated_at": c.updated_at} for c in conversations]
 
 
+    def delete_conversation(self, db: Session, conversation_id: int, user_id: int) -> None:
+        """Delete a conversation and its messages for a given user."""
+        from fastapi import HTTPException
+        conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == user_id).first()
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        # Delete associated messages
+        db.query(Message).filter(Message.conversation_id == conversation_id).delete()
+        db.delete(conv)
+        db.commit()
+
 memory_service = MemoryService()

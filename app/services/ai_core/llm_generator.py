@@ -1,5 +1,5 @@
 import os
-from huggingface_hub import InferenceClient
+from huggingface_hub import AsyncInferenceClient
 from typing import List, Dict, Any
 from app.core.config import settings
 
@@ -12,12 +12,12 @@ class LLMGenerator:
             print("WARNING: HUGGINGFACE_API_KEY not set. Using Mock LLM.")
             self.client = None
         else:
-            # Use InferenceClient from huggingface_hub
-            self.client = InferenceClient(token=self.api_key)
+            # Use AsyncInferenceClient
+            self.client = AsyncInferenceClient(token=self.api_key)
 
-    def generate_response(self, query: str, context: List[Dict], history: List[Dict], stats: Dict[str, Any] = None) -> str:
+    async def generate_response(self, query: str, context: List[Dict], history: List[Dict], stats: Dict[str, Any] = None) -> str:
         """
-        Generates a response using Hugging Face Inference API via InferenceClient.
+        Generates a response using Hugging Face Inference API via AsyncInferenceClient.
         """
         if not self.client:
              return f"Mock AI Response to '{query}' based on {len(context)} context items. (Set HUGGINGFACE_API_KEY to use real model)"
@@ -60,9 +60,10 @@ Context:
             "content": query
         })
 
-        # 4. Call HF API via InferenceClient
+        # 4. Call HF API via AsyncInferenceClient
         try:
-            completion = self.client.chat.completions.create(
+            # Using chat_completion method which is async
+            completion = await self.client.chat_completion(
                 model=self.model_id,
                 messages=messages,
                 max_tokens=512,
