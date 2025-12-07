@@ -3,8 +3,11 @@ from app.services.credential_service import credential_service
 from app.services.connectors.notion_connector import NotionConnector
 from app.services.connectors.jira_connector import JiraConnector
 from app.services.connectors.email_connector import EmailConnector
+from app.services.connectors.drive_connector import DriveConnector
 from app.services.processing.rag_pipeline import rag_pipeline
 from app.db.session import SessionLocal
+from app.models.user import User
+from app.core.config import settings
 
 class SyncService:
     def sync_user_data(self, user_id: int):
@@ -15,14 +18,31 @@ class SyncService:
         print(f"Starting sync for user_id={user_id}")
         db: Session = SessionLocal()
         try:
+            # Get user to check for Google Drive tokens
+            user = db.query(User).filter(User.id == user_id).first()
+            
             providers = {
                 "notion": NotionConnector(),
                 "jira": JiraConnector(),
                 "email": EmailConnector()
             }
+            
+            # Add Google Drive if user has connected it
+            if user and user.google_access_token:
+                providers["google_drive"] = DriveConnector()
 
             for provider_name, connector in providers.items():
-                credentials = credential_service.get_credentials(db, user_id, provider_name)
+                # Handle Google Drive credentials differently (stored on User model)
+                if provider_name == "google_drive" and user:
+                    credentials = {
+                        "access_token": user.google_access_token,
+                        "refresh_token": user.google_refresh_token,
+                        "client_id": settings.GOOGLE_CLIENT_ID,
+                        "client_secret": settings.GOOGLE_CLIENT_SECRET
+                    }
+                else:
+                    credentials = credential_service.get_credentials(db, user_id, provider_name)
+                
                 if not credentials:
                     print(f"No credentials found for {provider_name}, skipping.")
                     continue

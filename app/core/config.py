@@ -23,11 +23,12 @@ class Settings(BaseSettings):
         return self.SQLALCHEMY_DATABASE_URI
 
 
-    VECTOR_DB_TYPE: str = "chroma"
-    CHROMA_DB_PATH: str = "./chroma_db"
+
 
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
+    
+    GEMINI_API_KEY: Optional[str] = None
 
     HUGGINGFACE_API_KEY: Optional[str] = None
     HUGGINGFACE_MODEL: str = "Qwen/Qwen2.5-72B-Instruct"
