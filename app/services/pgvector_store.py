@@ -13,8 +13,10 @@ class PgVectorStore:
     
     def __init__(self):
         self.hf_api_key = settings.HUGGINGFACE_API_KEY
-        # Using sentence-transformers for embeddings (768 dimensions)
-        self.embedding_model = "sentence-transformers/all-mpnet-base-v2"
+        if not self.hf_api_key:
+            print("WARNING: HUGGINGFACE_API_KEY is missing via settings!")
+        # Using all-MiniLM-L6-v2 (384 dimensions) - reliable free tier model
+        self.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
     
     def _generate_embedding(self, text: str) -> List[float]:
         """Generate embedding vector for text using Hugging Face Inference API"""
@@ -22,6 +24,8 @@ class PgVectorStore:
         api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self.embedding_model}"
         
         response = httpx.post(api_url, headers=headers, json={"inputs": text})
+        if response.status_code != 200:
+            print(f"HF API Error: {response.status_code} - {response.text}")
         response.raise_for_status()
         
         # HF returns a list of embeddings (one per token), we take the mean

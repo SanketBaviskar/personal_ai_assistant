@@ -43,7 +43,14 @@ def chat(
     4. Save to Memory
     """
     # 1. Retrieve Context
-    context_docs = retriever.retrieve_context(current_user.id, request.query)
+    try:
+        print(f"Retrieving context for query: {request.query}")
+        context_docs = retriever.retrieve_context(current_user.id, request.query)
+        print(f"Retrieved {len(context_docs)} docs")
+    except Exception as e:
+        print(f"Error retrieving context: {e}")
+        # Continue without context rather than crashing
+        context_docs = []
     
     # 2. Get/Create Conversation
     conversation = memory_service.get_or_create_conversation(db, current_user.id, request.conversation_id)
@@ -52,7 +59,13 @@ def chat(
     history = memory_service.get_history(db, conversation.id)
     
     # 4. Generate Answer
-    answer = llm_generator.generate_response(request.query, context_docs, history)
+    try:
+        print("Generating LLM response...")
+        answer = llm_generator.generate_response(request.query, context_docs, history)
+        print("LLM response generated")
+    except Exception as e:
+        print(f"Error generating LLM response: {e}")
+        raise HTTPException(status_code=500, detail=f"LLM Generation failed: {str(e)}")
     
     # 5. Save to Memory
     memory_service.add_message(db, conversation.id, "user", request.query)
