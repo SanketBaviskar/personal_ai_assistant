@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.db.base import Base
@@ -11,25 +12,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
-from fastapi.middleware.cors import CORSMiddleware
-
-# Set all CORS enabled origins
-if hasattr(settings, "BACKEND_CORS_ORIGIN_REGEX") and settings.BACKEND_CORS_ORIGIN_REGEX:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-elif settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# TEMPORARY: Allow all origins for debugging
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # WARNING: This is INSECURE - for testing only!
+    allow_credentials=False,  # Must be False when using "*"
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
