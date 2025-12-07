@@ -14,7 +14,15 @@ app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/o
 from fastapi.middleware.cors import CORSMiddleware
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
+if hasattr(settings, "BACKEND_CORS_ORIGIN_REGEX") and settings.BACKEND_CORS_ORIGIN_REGEX:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+elif settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],

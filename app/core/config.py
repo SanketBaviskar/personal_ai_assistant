@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     ALGORITHM: str = "HS256"
     
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "https://exo-drab-zeta.vercel.app"]
+    # Regex to match: localhost (3000/5173/8000) OR https://exo-drab-zeta.vercel.app (with/without slash)
+    BACKEND_CORS_ORIGINS: List[str] = [] # Deprecated in favor of regex for flexibility
+    # This regex allows the specific frontend URL and localdev
+    BACKEND_CORS_ORIGIN_REGEX: str = r"^(http://localhost:\d+|https://exo-drab-zeta\.vercel\.app)/?$"
 
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///./sql_app.db"
     DATABASE_URL: Optional[str] = None
