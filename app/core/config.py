@@ -22,14 +22,9 @@ class Settings(BaseSettings):
             return self.DATABASE_URL.replace("postgres://", "postgresql://")
         return self.SQLALCHEMY_DATABASE_URI
 
-
-
-
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    
     GEMINI_API_KEY: Optional[str] = None
-
     HUGGINGFACE_API_KEY: Optional[str] = None
     HUGGINGFACE_MODEL: str = "Qwen/Qwen2.5-72B-Instruct"
 

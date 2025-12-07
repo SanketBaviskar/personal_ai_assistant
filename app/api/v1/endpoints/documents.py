@@ -6,7 +6,7 @@ from app.api import deps
 from app.models import user as models
 from app.models.document import Document
 from app.services.processing.pdf_processor import pdf_processor
-from app.services.vector_db import vector_db
+from app.services.pgvector_store import pgvector_store
 from app.db.session import SessionLocal
 
 router = APIRouter()
@@ -36,9 +36,9 @@ def process_pdf_background(document_id: int, file_content: bytes):
             chunks.append(text[i:i + chunk_size])
             
         for i, chunk in enumerate(chunks):
-            vector_db.index_document(
+            pgvector_store.index_document(
                 user_id=doc.user_id,
-                text=chunk,
+                content=chunk,
                 source_metadata={
                     "source_app": "pdf_upload",
                     "source_url": f"{doc.filename}_part_{i}"
