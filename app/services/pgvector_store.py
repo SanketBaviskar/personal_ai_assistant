@@ -120,43 +120,47 @@ class PgVectorStore:
             print(f"Error indexing document: {e}")
             raise
     
-    def search(self, user_id: int, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def search(self, user_id: int, query: str, top_k: int = 5, conversation_id: int = None) -> List[Dict[str, Any]]:
         """
         Search for documents similar to the query using vector similarity.
-        
-        Args:
-            user_id: User ID to filter results
-            query: Search query text
-            top_k: Number of results to return
-            
-        Returns:
-            List of dicts with 'content', 'source_app', 'source_url', 'similarity'
+        Supports filtering by conversation_id (scoped search).
         """
         try:
             # Generate query embedding
-            # BAAI/bge-small-en-v1.5 requires this instruction for queries 
             instruction = "Represent this sentence for searching relevant passages: "
             query_embedding = self._generate_embedding(query, instruction)
             
             # Search using cosine similarity
+            # Logic: (user_id match) AND (conv_id match OR conv_id is null/global)
+            filter_clause = "user_id = :user_id"
+            params = {
+                "user_id": user_id,
+                "query_embedding": str(query_embedding),
+                "top_k": top_k
+            }
+            
+            if conversation_id:
+                filter_clause += " AND (metadata->>'conversation_id' IS NULL OR metadata->>'conversation_id' = :conv_id)"
+                params["conv_id"] = str(conversation_id)
+            else:
+                # If no conversation context, maybe only show global? Or all?
+                # Usually if no context, we show all user's files.
+                pass 
+
             with engine.connect() as conn:
                 results = conn.execute(
-                    text("""
+                    text(f"""
                         SELECT 
                             content,
                             source_app,
                             source_url,
                             1 - (embedding <=> CAST(:query_embedding AS vector)) as similarity
                         FROM document_embeddings
-                        WHERE user_id = :user_id
+                        WHERE {filter_clause}
                         ORDER BY embedding <=> CAST(:query_embedding AS vector)
                         LIMIT :top_k
                     """),
-                    {
-                        "user_id": user_id,
-                        "query_embedding": str(query_embedding),
-                        "top_k": top_k
-                    }
+                    params
                 ).fetchall()
                 
                 return [
@@ -170,6 +174,22 @@ class PgVectorStore:
                 ]
         except Exception as e:
             print(f"Error searching documents: {e}")
+            raise
+    
+    def delete_document_by_file_id(self, user_id: int, file_id: str) -> None:
+        """
+        Delete a specific document (and all its chunks) by file_id.
+        """
+        try:
+            with engine.connect() as conn:
+                conn.execute(
+                    text("DELETE FROM document_embeddings WHERE user_id = :user_id AND metadata->>'file_id' = :file_id"),
+                    {"user_id": user_id, "file_id": file_id}
+                )
+                conn.commit()
+            print(f"Deleted document {file_id} for user {user_id}")
+        except Exception as e:
+            print(f"Error deleting document {file_id}: {e}")
             raise
     
     def delete_user_documents(self, user_id: int, source_app: str = None) -> None:

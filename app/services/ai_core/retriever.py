@@ -2,13 +2,13 @@ from typing import List, Dict, Any
 from app.services.pgvector_store import pgvector_store
 
 class Retriever:
-    def retrieve_context(self, user_id: int, query: str, k: int = 5) -> Dict[str, Any]:
+    def retrieve_context(self, user_id: int, query: str, k: int = 5, conversation_id: int = None) -> Dict[str, Any]:
         """
         Retrieves context and metadata stats.
         Returns: { 'chunks': [...], 'stats': {...} }
         """
         # 1. Query Vector DB (pgvector handles embedding generation)
-        results = pgvector_store.search(user_id=user_id, query=query, top_k=k)
+        results = pgvector_store.search(user_id=user_id, query=query, top_k=k, conversation_id=conversation_id)
         
         # 2. Get Stats (Metadata Awareness)
         stats = pgvector_store.get_user_file_stats(user_id)

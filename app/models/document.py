@@ -12,5 +12,6 @@ class Document(Base):
     status = Column(String, default="pending") # pending, processing, completed, failed
     error_message = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=True)
     
     owner = relationship("User", back_populates="documents")

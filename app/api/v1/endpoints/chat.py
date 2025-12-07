@@ -44,8 +44,8 @@ def chat(
     """
     # 1. Retrieve Context
     try:
-        print(f"Retrieving context for query: {request.query}")
-        retrieval_result = retriever.retrieve_context(current_user.id, request.query)
+        print(f"Retrieving context for query: {request.query} (Conversation: {request.conversation_id})")
+        retrieval_result = retriever.retrieve_context(current_user.id, request.query, conversation_id=request.conversation_id)
         context_docs = retrieval_result["chunks"]
         context_stats = retrieval_result["stats"]
         print(f"Retrieved {len(context_docs)} docs")
