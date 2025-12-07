@@ -43,8 +43,8 @@ class DriveConnector(BaseConnector):
         
         results = []
         
-        # Query for Google Docs and PDFs
-        query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/pdf') and trashed=false"
+        # Query for Google Docs, PDFs, Images, and Word Docs
+        query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/pdf' or mimeType='image/jpeg' or mimeType='image/png' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document') and trashed=false"
         
         try:
             response = service.files().list(
@@ -66,6 +66,10 @@ class DriveConnector(BaseConnector):
                         text = self._fetch_google_doc(service, file_id)
                     elif mime_type == 'application/pdf':
                         text = self._fetch_pdf(service, file_id)
+                    elif mime_type in ['image/jpeg', 'image/png']:
+                         text = self._fetch_image(service, file_id)
+                    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                         text = self._fetch_docx(service, file_id)
                     else:
                         continue
                     
@@ -74,7 +78,9 @@ class DriveConnector(BaseConnector):
                             "text": text,
                             "source_metadata": {
                                 "source_app": "google_drive",
-                                "source_url": f"https://drive.google.com/file/d/{file_id}/view"
+                                "source_url": f"https://drive.google.com/file/d/{file_id}/view",
+                                "file_name": file_name,
+                                "mime_type": mime_type
                             }
                         })
                         print(f"Fetched: {file_name}")
@@ -129,4 +135,38 @@ class DriveConnector(BaseConnector):
             return text.strip()
         except Exception as e:
             print(f"Error extracting PDF {file_id}: {e}")
+            return ""
+
+    def _fetch_image(self, service, file_id: str) -> str:
+        """Download and extract text from Image using OCR"""
+        try:
+            request = service.files().get_media(fileId=file_id)
+            file_content = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_content, request)
+            
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            
+            from app.services.processing.image_processor import image_processor
+            return image_processor.extract_text(file_content.getvalue())
+        except Exception as e:
+            print(f"Error extracting Image {file_id}: {e}")
+            return ""
+
+    def _fetch_docx(self, service, file_id: str) -> str:
+        """Download and extract text from DOCX"""
+        try:
+            request = service.files().get_media(fileId=file_id)
+            file_content = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_content, request)
+            
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            
+            from app.services.processing.docx_processor import docx_processor
+            return docx_processor.extract_text(file_content.getvalue())
+        except Exception as e:
+            print(f"Error extracting DOCX {file_id}: {e}")
             return ""

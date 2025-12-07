@@ -45,12 +45,15 @@ def chat(
     # 1. Retrieve Context
     try:
         print(f"Retrieving context for query: {request.query}")
-        context_docs = retriever.retrieve_context(current_user.id, request.query)
+        retrieval_result = retriever.retrieve_context(current_user.id, request.query)
+        context_docs = retrieval_result["chunks"]
+        context_stats = retrieval_result["stats"]
         print(f"Retrieved {len(context_docs)} docs")
     except Exception as e:
         print(f"Error retrieving context: {e}")
         # Continue without context rather than crashing
         context_docs = []
+        context_stats = {}
     
     # 2. Get/Create Conversation
     conversation = memory_service.get_or_create_conversation(db, current_user.id, request.conversation_id)
@@ -61,7 +64,8 @@ def chat(
     # 4. Generate Answer
     try:
         print("Generating LLM response...")
-        answer = llm_generator.generate_response(request.query, context_docs, history)
+        # Passing stats to LLM generator
+        answer = llm_generator.generate_response(request.query, context_docs, history, context_stats)
         print("LLM response generated")
     except Exception as e:
         print(f"Error generating LLM response: {e}")

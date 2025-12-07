@@ -132,7 +132,8 @@ def connect_google_drive(
                 'openid',
                 'https://www.googleapis.com/auth/userinfo.profile',
                 'https://www.googleapis.com/auth/userinfo.email',
-                'https://www.googleapis.com/auth/drive.readonly'
+                'https://www.googleapis.com/auth/drive.readonly',
+                'https://www.googleapis.com/auth/calendar.readonly'
             ],
             redirect_uri=auth_data.redirect_uri
         )

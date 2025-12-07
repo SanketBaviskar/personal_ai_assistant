@@ -67,7 +67,7 @@ class GoogleDriveService:
         service = build('drive', 'v3', credentials=creds)
         
         results = service.files().list(
-            q="(mimeType='application/vnd.google-apps.document' or mimeType='application/pdf' or mimeType='image/jpeg' or mimeType='image/png') and trashed=false",
+            q="(mimeType='application/vnd.google-apps.document' or mimeType='application/pdf' or mimeType='image/jpeg' or mimeType='image/png' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document') and trashed=false",
             pageSize=limit,
             fields="nextPageToken, files(id, name, mimeType, createdTime, modifiedTime)"
         ).execute()
@@ -106,5 +106,31 @@ class GoogleDriveService:
         except Exception as e:
             print(f"Error getting file content: {e}")
             raise e
+
+    def list_calendar_events(self, user: User, max_results: int = 50) -> List[dict]:
+        """
+        Lists upcoming calendar events.
+        """
+        creds = self.get_credentials(user)
+        if not creds:
+             raise Exception("User not authenticated with Google")
+
+        service = build('calendar', 'v3', credentials=creds)
+        
+        # Get UTC time now
+        import datetime
+        now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
+        
+        try:
+            events_result = service.events().list(
+                calendarId='primary', timeMin=now,
+                maxResults=max_results, singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            events = events_result.get('items', [])
+            return events
+        except Exception as e:
+            print(f"Error fetching calendar events: {e}")
+            return []
 
 google_drive_service = GoogleDriveService()

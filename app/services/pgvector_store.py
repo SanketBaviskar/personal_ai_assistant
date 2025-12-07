@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.db.session import engine
 import httpx
+import json
 from app.core.config import settings
 
 class PgVectorStore:
@@ -15,24 +16,72 @@ class PgVectorStore:
         self.hf_api_key = settings.HUGGINGFACE_API_KEY
         if not self.hf_api_key:
             print("WARNING: HUGGINGFACE_API_KEY is missing via settings!")
-        # Using all-MiniLM-L6-v2 (384 dimensions) - reliable free tier model
-        self.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+        # Using BAAI/bge-small-en-v1.5 (384 dimensions) - High performance & free
+        self.embedding_model = "BAAI/bge-small-en-v1.5"
     
-    def _generate_embedding(self, text: str) -> List[float]:
+    def _generate_embedding(self, text: str, instruction: str = "") -> List[float]:
         """Generate embedding vector for text using Hugging Face Inference API"""
         headers = {"Authorization": f"Bearer {self.hf_api_key}"}
-        api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{self.embedding_model}"
+        # Correct URL for the new HF Inference Router
+        api_url = f"https://router.huggingface.co/hf-inference/models/{self.embedding_model}"
         
-        response = httpx.post(api_url, headers=headers, json={"inputs": text})
-        if response.status_code != 200:
-            print(f"HF API Error: {response.status_code} - {response.text}")
+        # Prepend instruction if provided (Critical for BGE models on query side)
+        input_text = f"{instruction}{text}"
+        
+        # Retry logic for 500/503 errors
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Increased timeout to 30s for free tier cold starts
+                response = httpx.post(api_url, headers=headers, json={"inputs": input_text}, timeout=30.0)
+                
+                if response.status_code == 503:
+                    print(f"HF Model loading (503), retrying in {2 ** attempt}s...")
+                    time.sleep(2 ** attempt)
+                    continue
+                    
+                if response.status_code == 500:
+                    print(f"HF Server Error (500), retrying in {2 ** attempt}s...")
+                    time.sleep(2 ** attempt)
+                    continue
+                    
+                if response.status_code != 200:
+                    print(f"HF API Error: {response.status_code} - {response.text}")
+                    response.raise_for_status()
+                    
+                # Success
+                break
+            except httpx.TimeoutException:
+                print(f"HF Timeout, retrying in {2 ** attempt}s...")
+                time.sleep(2 ** attempt)
+                continue
+        else:
+             raise Exception(f"Failed to generate embedding after {max_retries} attempts")
+        
         response.raise_for_status()
         
-        # HF returns a list of embeddings (one per token), we take the mean
         embeddings = response.json()
-        if isinstance(embeddings, list) and len(embeddings) > 0:
-            # Mean pooling over all token embeddings
-            return [sum(col) / len(embeddings) for col in zip(*embeddings)]
+        
+        # Handle different response formats
+        if isinstance(embeddings, list):
+            if len(embeddings) == 0:
+                return []
+                
+            # Case 1: 1D list of floats (Direct embedding) - BGE models often return this for single input
+            if isinstance(embeddings[0], float):
+                return embeddings
+                
+            # Case 2: List of lists (Batch of 1 or Token embeddings)
+            if isinstance(embeddings[0], list):
+                # If it's a batch of 1 (which gives [[float, float...]]), take the first one
+                if isinstance(embeddings[0][0], float):
+                    return embeddings[0]
+                    
+                # Case 3: Token embeddings (List[List[float]]) - Mean pool
+                # This logic remains for models that return token embeddings
+                return [sum(col) / len(embeddings) for col in zip(*embeddings)]
+                
         return embeddings
     
     def index_document(self, user_id: int, content: str, source_metadata: Dict[str, Any]) -> None:
@@ -53,15 +102,16 @@ class PgVectorStore:
                 conn.execute(
                     text("""
                         INSERT INTO document_embeddings 
-                        (user_id, content, embedding, source_app, source_url)
-                        VALUES (:user_id, :content, :embedding::vector, :source_app, :source_url)
+                        (user_id, content, embedding, source_app, source_url, metadata)
+                        VALUES (:user_id, :content, CAST(:embedding AS vector), :source_app, :source_url, :metadata)
                     """),
                     {
                         "user_id": user_id,
                         "content": content,
                         "embedding": str(embedding),  # pgvector accepts string representation
                         "source_app": source_metadata.get("source_app"),
-                        "source_url": source_metadata.get("source_url")
+                        "source_url": source_metadata.get("source_url"),
+                        "metadata": json.dumps(source_metadata) # Store full metadata as JSON
                     }
                 )
                 conn.commit()
@@ -84,7 +134,9 @@ class PgVectorStore:
         """
         try:
             # Generate query embedding
-            query_embedding = self._generate_embedding(query)
+            # BAAI/bge-small-en-v1.5 requires this instruction for queries 
+            instruction = "Represent this sentence for searching relevant passages: "
+            query_embedding = self._generate_embedding(query, instruction)
             
             # Search using cosine similarity
             with engine.connect() as conn:
@@ -94,10 +146,10 @@ class PgVectorStore:
                             content,
                             source_app,
                             source_url,
-                            1 - (embedding <=> :query_embedding::vector) as similarity
+                            1 - (embedding <=> CAST(:query_embedding AS vector)) as similarity
                         FROM document_embeddings
                         WHERE user_id = :user_id
-                        ORDER BY embedding <=> :query_embedding::vector
+                        ORDER BY embedding <=> CAST(:query_embedding AS vector)
                         LIMIT :top_k
                     """),
                     {
@@ -145,6 +197,56 @@ class PgVectorStore:
         except Exception as e:
             print(f"Error deleting documents: {e}")
             raise
+
+    def get_user_file_stats(self, user_id: int) -> Dict[str, Any]:
+        """
+        Get statistics about a user's uploaded files.
+        """
+        try:
+            with engine.connect() as conn:
+                # Get distinct file names from metadata
+                # Using COALESCE to fallback to source_url if file_name is missing
+                result = conn.execute(
+                    text("""
+                        SELECT 
+                            COUNT(DISTINCT metadata->>'file_id') as file_count,
+                            STRING_AGG(DISTINCT metadata->>'file_name', ', ') as file_list,
+                            COUNT(*) as chunk_count
+                        FROM document_embeddings
+                        WHERE user_id = :user_id
+                    """),
+                    {"user_id": user_id}
+                ).fetchone()
+                
+                return {
+                    "file_count": result[0],
+                    "file_names": result[1] if result[1] else "(No files found)",
+                    "total_chunks": result[2]
+                }
+        except Exception as e:
+            print(f"Error getting file stats: {e}")
+            return {"file_count": 0, "file_names": "", "total_chunks": 0}
+
+    def has_document(self, user_id: int, file_id: str) -> bool:
+        """
+        Check if a document with the given file_id already exists for the user.
+        """
+        try:
+            with engine.connect() as conn:
+                result = conn.execute(
+                    text("""
+                        SELECT 1 
+                        FROM document_embeddings 
+                        WHERE user_id = :user_id 
+                        AND metadata->>'file_id' = :file_id
+                        LIMIT 1
+                    """),
+                    {"user_id": user_id, "file_id": file_id}
+                ).fetchone()
+                return result is not None
+        except Exception as e:
+            print(f"Error checking document existence: {e}")
+            return False
 
 # Singleton instance
 pgvector_store = PgVectorStore()

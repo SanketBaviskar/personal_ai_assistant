@@ -23,3 +23,6 @@ psycopg2-binary
 email-validator
 requests
 python-dotenv
+easyocr
+Pillow
+python-docx

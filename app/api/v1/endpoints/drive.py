@@ -5,6 +5,7 @@ from app.api import deps
 from app.models import user as models
 from app.services.google_service import google_drive_service
 from app.services.rag_service import rag_service
+from app.services.pgvector_store import pgvector_store
 
 router = APIRouter()
 
@@ -24,15 +25,19 @@ def sync_drive_files(
         files = google_drive_service.list_files(current_user)
         
         # 2. Ingest each file
-        # In a real app, this should be a background task
         count = 0
+        skipped = 0
         for file in files:
-            # We might want to check if file is already ingested or modified
-            # For now, we just re-ingest
-            rag_service.ingest_file(current_user, file['id'], file['mimeType'])
+            # Check if file is already ingested (Incremental Sync)
+            if pgvector_store.has_document(current_user.id, file['id']):
+                print(f"Skipping existing file: {file['name']}")
+                skipped += 1
+                continue
+                
+            rag_service.ingest_file(current_user, file['id'], file['mimeType'], file['name'])
             count += 1
             
-        return {"message": f"Successfully synced {count} files"}
+        return {"message": f"Synced {count} new files (Skipped {skipped} existing)"}
         
     except Exception as e:
         # Log error

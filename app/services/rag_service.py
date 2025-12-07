@@ -11,23 +11,14 @@ try:
 except ImportError:
     google_drive_service = None
 
+from app.services.processing.chunker import chunker
+
 class RAGService:
     """
     Service class for RAG operations.
     """
-    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        """
-        Splits text into overlapping chunks.
-        """
-        chunks = []
-        start = 0
-        while start < len(text):
-            end = start + chunk_size
-            chunks.append(text[start:end])
-            start += chunk_size - overlap
-        return chunks
 
-    def ingest_file(self, user: User, file_id: str, mime_type: str):
+    def ingest_file(self, user: User, file_id: str, mime_type: str, file_name: str = None):
         """
         Fetches a file from Drive, processes it based on type, and indexes it.
         """
@@ -46,14 +37,18 @@ class RAGService:
                 from app.services.processing.pdf_processor import pdf_processor
                 text_to_index = pdf_processor.extract_text(content)
             elif mime_type in ['image/jpeg', 'image/png']:
-                # Skipping image processing for now as requested
-                return
+                from app.services.processing.image_processor import image_processor
+                text_to_index = image_processor.extract_text(content)
+            elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                from app.services.processing.docx_processor import docx_processor
+                text_to_index = docx_processor.extract_text(content)
             
             if not text_to_index:
                 print(f"No text extracted for file {file_id} ({mime_type})")
                 return
 
-            chunks = self.chunk_text(text_to_index)
+            # Use the robust ChunkerService
+            chunks = chunker.chunk_text(text_to_index)
             
             for i, chunk in enumerate(chunks):
                 metadata = {
@@ -61,6 +56,7 @@ class RAGService:
                     "source_url": f"https://docs.google.com/document/d/{file_id}" if mime_type == 'application/vnd.google-apps.document' else f"drive://{file_id}",
                     "file_id": file_id,
                     "mime_type": mime_type,
+                    "file_name": file_name,
                     "chunk_index": i
                 }
                 
