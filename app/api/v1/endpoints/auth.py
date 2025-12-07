@@ -128,7 +128,12 @@ def connect_google_drive(
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
             },
-            scopes=['https://www.googleapis.com/auth/drive.readonly'],
+            scopes=[
+                'openid',
+                'https://www.googleapis.com/auth/userinfo.profile',
+                'https://www.googleapis.com/auth/userinfo.email',
+                'https://www.googleapis.com/auth/drive.readonly'
+            ],
             redirect_uri=auth_data.redirect_uri
         )
         
