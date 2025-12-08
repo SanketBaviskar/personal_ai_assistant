@@ -78,7 +78,7 @@ class PgVectorStore:
         with engine.connect() as conn:
             return func(conn, **kwargs)
     
-    async def index_document(self, user_id: int, content: str, source_metadata: Dict[str, Any]) -> None:
+    async def index_document(self, user_id: int, document_id: int, content: str, source_metadata: Dict[str, Any]) -> None:
         """
         Index a document chunk by generating its embedding and storing in pgvector.
         """
@@ -93,8 +93,8 @@ class PgVectorStore:
                 conn.execute(
                     text("""
                         INSERT INTO document_embeddings 
-                        (user_id, content, embedding, source_app, source_url, metadata)
-                        VALUES (:user_id, :content, CAST(:embedding AS vector), :source_app, :source_url, :metadata)
+                        (user_id, document_id, content, embedding, source_app, source_url, metadata)
+                        VALUES (:user_id, :document_id, :content, CAST(:embedding AS vector), :source_app, :source_url, :metadata)
                     """),
                     kwargs
                 )
@@ -103,6 +103,7 @@ class PgVectorStore:
             await run_in_threadpool(
                 lambda: self._execute_sync_db((db_op, {
                     "user_id": user_id,
+                    "document_id": document_id,
                     "content": content,
                     "embedding": str(embedding),
                     "source_app": source_metadata.get("source_app"),
