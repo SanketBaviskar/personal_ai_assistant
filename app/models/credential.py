@@ -12,6 +12,4 @@ class UserCredential(Base):
     
     user = relationship("User", back_populates="credentials")
 
-# Update User model to include relationship
-from app.models.user import User
-User.credentials = relationship("UserCredential", back_populates="user")
+

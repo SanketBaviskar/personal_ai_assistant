@@ -77,8 +77,8 @@ async def chat(
         raise HTTPException(status_code=500, detail=f"LLM Generation failed: {str(e)}")
     
     # 5. Save to Memory (DB Op)
-    await run_in_threadpool(memory_service.add_message, db, conversation.id, "user", request.query)
-    await run_in_threadpool(memory_service.add_message, db, conversation.id, "assistant", answer)
+    await run_in_threadpool(memory_service.add_message, db, conversation.id, current_user.id, "user", request.query)
+    await run_in_threadpool(memory_service.add_message, db, conversation.id, current_user.id, "assistant", answer)
     
     # Format Sources
     sources = []

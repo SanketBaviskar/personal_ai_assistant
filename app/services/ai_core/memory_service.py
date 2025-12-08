@@ -16,8 +16,8 @@ class MemoryService:
         db.refresh(new_conversation)
         return new_conversation
 
-    def add_message(self, db: Session, conversation_id: int, role: str, content: str) -> Message:
-        message = Message(conversation_id=conversation_id, role=role, content=content)
+    def add_message(self, db: Session, conversation_id: int, user_id: int, role: str, content: str) -> Message:
+        message = Message(conversation_id=conversation_id, user_id=user_id, role=role, content=content)
         db.add(message)
         db.commit()
         db.refresh(message)

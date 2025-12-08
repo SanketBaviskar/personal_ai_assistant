@@ -11,6 +11,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.db.session import SessionLocal
 from app.models.document import Document
 from app.models.user import User
+from app.models.credential import UserCredential # Ensure registered
+from app.models.chat import Conversation, Message # Ensure registered
 from sqlalchemy import text
 
 # Mock services

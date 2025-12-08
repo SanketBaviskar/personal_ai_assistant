@@ -195,6 +195,27 @@ class PgVectorStore:
             print(f"Error deleting document {file_id}: {e}")
             raise
     
+    async def delete_document_chunks(self, user_id: int, document_id: int) -> None:
+        """
+        Delete all chunks for a specific document_id (used during re-sync).
+        """
+        from starlette.concurrency import run_in_threadpool
+        try:
+            def db_del(conn, **kwargs):
+                conn.execute(
+                    text("DELETE FROM document_embeddings WHERE user_id = :user_id AND document_id = :document_id"),
+                    kwargs
+                )
+                conn.commit()
+            
+            await run_in_threadpool(
+                lambda: self._execute_sync_db((db_del, {"user_id": user_id, "document_id": document_id}))
+            )
+            print(f"Deleted chunks for document {document_id} for user {user_id}")
+        except Exception as e:
+            print(f"Error deleting chunks for document {document_id}: {e}")
+            raise
+
     def delete_user_documents(self, user_id: int, source_app: str = None) -> None:
         """
         Delete all documents for a user. Kept Sync for now as it's rarely used.

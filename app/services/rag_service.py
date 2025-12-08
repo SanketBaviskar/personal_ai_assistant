@@ -103,6 +103,11 @@ class RAGService:
             # Blocking CPU task -> Thread
             chunks = await run_in_threadpool(chunker.chunk_text, text_to_index)
             
+            # CLEAR OLD CHUNKS to ensure idempotency
+            # We can define a method in pgvector_store or do it here via raw query, 
+            # but pgvector_store is cleaner.
+            await pgvector_store.delete_document_chunks(user.id, document_id)
+
             for i, chunk in enumerate(chunks):
                 metadata = {
                     "source_app": "google_drive",

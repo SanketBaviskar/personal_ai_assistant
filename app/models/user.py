@@ -16,3 +16,4 @@ class User(Base):
     
     conversations = relationship("Conversation", back_populates="user")
     documents = relationship("Document", back_populates="owner")
+    credentials = relationship("UserCredential", back_populates="user")
