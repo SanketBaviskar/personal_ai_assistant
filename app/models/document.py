@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -15,7 +15,7 @@ class Document(Base):
     # New columns from checklist
     provider = Column(String, nullable=True) # google_drive, notion, jira
     external_id = Column(String, nullable=True) # File ID in source system
-    source_url = Column(String, nullable=True)
+    source_url = Column(Text, nullable=True)
     content_hash = Column(String, nullable=True) # For duplicate detection
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

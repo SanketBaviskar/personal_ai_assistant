@@ -26,3 +26,5 @@ python-dotenv
 easyocr
 Pillow
 python-docx
+alembic
+pgvector

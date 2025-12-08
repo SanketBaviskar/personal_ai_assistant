@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, UUID
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
 
@@ -6,6 +6,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    auth_user_id = Column(UUID(as_uuid=True), index=True, nullable=True) # Supabase Auth UID
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=True)
     google_sub = Column(String, unique=True, nullable=True)
